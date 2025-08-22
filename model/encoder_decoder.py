@@ -1,0 +1,59 @@
+import torch
+from torch import nn
+from torch.nn import functional as F
+from model.utils import MultiHeadAttention
+
+
+class EncoderBlock(nn.Module):
+    def __init__(self, input_emb_dim, output_dim, num_heads, dropout=0.1):
+        super(EncoderBlock, self).__init__()
+        self.self_attention = MultiHeadAttention(num_heads, input_emb_dim, dropout)
+        self.ffn = nn.Sequential(
+            nn.Linear(input_emb_dim, output_dim),
+            nn.ReLU(),
+            nn.Linear(output_dim, input_emb_dim)
+        )
+        self.layer_norm1 = nn.LayerNorm(input_emb_dim)
+        self.layer_norm2 = nn.LayerNorm(input_emb_dim)
+        self.dropout = nn.Dropout(dropout)
+    
+    def forward(self, x, mask=None):
+        # Self-attention
+        attn_output = self.self_attention(x, x, x, mask)
+        x = self.layer_norm1(x + attn_output)
+        
+        # Feed-forward network
+        ffn_output = self.ffn(x)
+        x = self.layer_norm2(x + self.dropout(ffn_output))
+        
+        return x
+
+class DecoderBlock(nn.Module):
+    def __init__(self, input_emb_dim, output_dim, num_heads, dropout=0.1):
+        super(DecoderBlock, self).__init__()
+        self.self_attention = MultiHeadAttention(num_heads, input_emb_dim, dropout)
+        self.cross_attention = MultiHeadAttention(num_heads, input_emb_dim, dropout)
+        self.ffn = nn.Sequential(
+            nn.Linear(input_emb_dim, output_dim),
+            nn.ReLU(),
+            nn.Linear(output_dim, input_emb_dim)
+        )
+        self.layer_norm1 = nn.LayerNorm(input_emb_dim)
+        self.layer_norm2 = nn.LayerNorm(input_emb_dim)
+        self.layer_norm3 = nn.LayerNorm(input_emb_dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, enc_output, mask=None):
+        # Self-attention
+        attn_output = self.self_attention(x, x, x, mask)
+        x = self.layer_norm1(x + attn_output)
+
+        # Cross-attention
+        cross_attn_output = self.cross_attention(x, enc_output, enc_output, mask)
+        x = self.layer_norm2(x + cross_attn_output)
+
+        # Feed-forward network
+        ffn_output = self.ffn(x)
+        x = self.layer_norm3(x + self.dropout(ffn_output))
+
+        return x
