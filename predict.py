@@ -43,7 +43,7 @@ model.eval()
 
 # Load tokenizer
 tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-de-en")
-tokenizer.add_special_tokens({"direction_tokens": ["<2en>", "<2de>"]})
+tokenizer.add_tokens({"additional_special_tokens": ["<2en>", "<2de>"]})
 
 # Manually adding direction token
 direction_token = f"<2{args.target_lang}>"

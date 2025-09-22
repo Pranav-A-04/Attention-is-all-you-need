@@ -1,15 +1,8 @@
 from transformers import AutoTokenizer
 import random
 
-# taking a pretrained tokenizer for simplicity - one which has already been trained for German <-> English translation
-tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-de-en")
-
-# add special tokens for language direction
-special_tokens = {"direction_tokens": ["<2en>", "<2de>"]}
-tokenizer.add_special_tokens(special_tokens)
-
 # unidirectional tokenization function
-def tokenize_func(batch):
+def tokenize_func(batch, tokenizer):
     return tokenizer(
         batch["translation"]["de"],
         text_target=batch["translation"]["en"],
@@ -19,7 +12,7 @@ def tokenize_func(batch):
     )
 
 # bidirectional tokenization function
-def tokenize_func_bidirectional(batch):
+def tokenize_func_bidirectional(batch, tokenizer):
     
     sources = []
     targets = []

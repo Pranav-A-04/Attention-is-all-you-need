@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import os
 import numpy as np
+from transformers import AutoTokenizer
+from functools import partial
 from model.transformer import Transformer
 from model.utils import *
 from preprocess.tokenize import *
@@ -12,8 +14,7 @@ from torch.utils.data import DataLoader
 parser = argparse.ArgumentParser()
 
 #model args
-parser.add_argument('--input_dim', type=int, default=512, help='Input embedding dimension')
-parser.add_argument('--output_dim', type=int, default=512, help='Output embedding dimension')
+parser.add_argument('--emb_dim', type=int, default=512, help='Embedding dimension')
 parser.add_argument('--num_heads', type=int, default=8, help='Number of attention heads')
 parser.add_argument('--num_encoder_layers', type=int, default=6, help='Number of encoder layers')
 parser.add_argument('--num_decoder_layers', type=int, default=6, help='Number of decoder layers')
@@ -37,9 +38,18 @@ seed_all(args.seed)
 # load IWSLT14 German ↔ English
 dataset = load_dataset("iwslt2017", "iwslt2017-en-de")
 
-# tokenize the dataset (support DE -> EN and EN -> DE)
+# taking a pretrained tokenizer for simplicity - one which has already been trained for German <-> English translation
+tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-de-en")
+
+# add special tokens for language direction
+special_tokens = {"additional_special_tokens": ["<2en>", "<2de>"]}
+tokenizer.add_special_tokens(special_tokens)
+
+tokenize_fn = partial(tokenize_func_bidirectional, tokenizer=tokenizer)
+
+# bidirectional tokenization
 tokenized_dataset = dataset.map(
-    tokenize_func_bidirectional, 
+    tokenize_fn, 
     batched=True
 )
 
@@ -109,14 +119,18 @@ def validate(batch, model, loss_criterion, device, epoch):
 
 def main():
     # initialize model, optimizer, loss criterion
+    vocab_size = len(tokenizer)
     model = Transformer(
-        input_dim=args.input_dim,
-        output_dim=args.output_dim,
+        vocab_size=vocab_size,
+        d_model=args.emb_dim,
         num_heads=args.num_heads,
         num_encoder_layers=args.num_encoder_layers,
         num_decoder_layers=args.num_decoder_layers,
         dropout=args.dropout
     ).to(args.device)
+    
+    model.resize_token_embeddings(len(tokenizer))
+
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     loss_criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)

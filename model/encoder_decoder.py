@@ -5,16 +5,16 @@ from model.utils import MultiHeadAttention
 
 
 class EncoderBlock(nn.Module):
-    def __init__(self, input_emb_dim, output_dim, num_heads, dropout=0.1):
+    def __init__(self, emb_dim, num_heads, dropout=0.1):
         super(EncoderBlock, self).__init__()
-        self.self_attention = MultiHeadAttention(num_heads, input_emb_dim, dropout)
+        self.self_attention = MultiHeadAttention(num_heads, emb_dim, dropout)
         self.ffn = nn.Sequential(
-            nn.Linear(input_emb_dim, output_dim),
+            nn.Linear(emb_dim, emb_dim),
             nn.ReLU(),
-            nn.Linear(output_dim, input_emb_dim)
+            nn.Linear(emb_dim, emb_dim)
         )
-        self.layer_norm1 = nn.LayerNorm(input_emb_dim)
-        self.layer_norm2 = nn.LayerNorm(input_emb_dim)
+        self.layer_norm1 = nn.LayerNorm(emb_dim)
+        self.layer_norm2 = nn.LayerNorm(emb_dim)
         self.dropout = nn.Dropout(dropout)
     
     def forward(self, x, mask=None):
@@ -29,27 +29,27 @@ class EncoderBlock(nn.Module):
         return x
 
 class DecoderBlock(nn.Module):
-    def __init__(self, input_emb_dim, output_dim, num_heads, dropout=0.1):
+    def __init__(self, emb_dim, num_heads, dropout=0.1):
         super(DecoderBlock, self).__init__()
-        self.self_attention = MultiHeadAttention(num_heads, input_emb_dim, dropout)
-        self.cross_attention = MultiHeadAttention(num_heads, input_emb_dim, dropout)
+        self.self_attention = MultiHeadAttention(num_heads, emb_dim, dropout)
+        self.cross_attention = MultiHeadAttention(num_heads, emb_dim, dropout)
         self.ffn = nn.Sequential(
-            nn.Linear(input_emb_dim, output_dim),
+            nn.Linear(emb_dim, emb_dim),
             nn.ReLU(),
-            nn.Linear(output_dim, input_emb_dim)
+            nn.Linear(emb_dim, emb_dim)
         )
-        self.layer_norm1 = nn.LayerNorm(input_emb_dim)
-        self.layer_norm2 = nn.LayerNorm(input_emb_dim)
-        self.layer_norm3 = nn.LayerNorm(input_emb_dim)
+        self.layer_norm1 = nn.LayerNorm(emb_dim)
+        self.layer_norm2 = nn.LayerNorm(emb_dim)
+        self.layer_norm3 = nn.LayerNorm(emb_dim)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x, enc_output, mask=None):
+    def forward(self, x, enc_output, src_mask, tgt_mask):
         # Self-attention
-        attn_output = self.self_attention(x, x, x, mask)
+        attn_output = self.self_attention(x, x, x, tgt_mask)
         x = self.layer_norm1(x + attn_output)
 
         # Cross-attention
-        cross_attn_output = self.cross_attention(x, enc_output, enc_output, mask)
+        cross_attn_output = self.cross_attention(x, enc_output, enc_output, src_mask)
         x = self.layer_norm2(x + cross_attn_output)
 
         # Feed-forward network
