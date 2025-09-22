@@ -1,4 +1,6 @@
 import torch
+import random
+import numpy as np
 from torch import nn
 from torch.nn import functional as F
 
@@ -71,3 +73,7 @@ class MultiHeadAttention(nn.Module):
 
         return x
     
+def seed_all(seed):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
