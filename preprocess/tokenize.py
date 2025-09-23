@@ -8,7 +8,7 @@ def tokenize_func(batch, tokenizer):
         text_target=batch["translation"]["en"],
         truncation=True,
         padding="max_length",
-        max_length=128,
+        max_length=64,
     )
 
 # bidirectional tokenization function
@@ -31,7 +31,7 @@ def tokenize_func_bidirectional(batch, tokenizer):
         text_target=targets,
         truncation=True,
         padding="max_length",
-        max_length=128,
+        max_length=64,
     )
 
     return model_inputs

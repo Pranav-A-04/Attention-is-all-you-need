@@ -49,7 +49,7 @@ tokenizer.add_tokens({"additional_special_tokens": ["<2en>", "<2de>"]})
 direction_token = f"<2{args.target_lang}>"
 source_text = f"{direction_token} {args.source_sentence}"
 print(f"Source Text: {source_text}")
-max_len = 128  # Maximum length of the target sequence
+max_len = 64  # Maximum length of the target sequence
 
 # Tokenize the input sentence
 inputs = tokenizer(
@@ -57,7 +57,7 @@ inputs = tokenizer(
     return_tensors="pt",
     truncation=True,
     padding="max_length",
-    max_length=128
+    max_length=64
 ).to(args.device)
 
 input_ids = inputs["input_ids"].to(args.device)
