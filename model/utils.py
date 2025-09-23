@@ -49,8 +49,6 @@ class MultiHeadAttention(nn.Module):
         self.linear_out = nn.Linear(d_model, d_model)
 
         self.attention = ScaledDotProductAttention(dropout)
-        self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(d_model)
 
     def forward(self, query, key, value, mask=None):
         batch_size = query.size(0)
@@ -69,8 +67,6 @@ class MultiHeadAttention(nn.Module):
         x = x.transpose(1, 2).contiguous().view(batch_size, -1, self.num_heads * self.d_k)
 
         x = self.linear_out(x)
-        x = self.dropout(x)
-        x = self.layer_norm(x + residual)
 
         return x
     
