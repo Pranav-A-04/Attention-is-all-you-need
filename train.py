@@ -36,7 +36,7 @@ seed_all(args.seed)
 # Dataset preparation & loading
 
 # load IWSLT14 German ↔ English
-dataset = load_dataset("iwslt2017", "iwslt2017-en-de")
+dataset = load_dataset("iwslt2017", "iwslt2017-en-de",  trust_remote_code=True)
 
 # taking a pretrained tokenizer for simplicity - one which has already been trained for German <-> English translation
 tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-de-en")
