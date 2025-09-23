@@ -74,3 +74,11 @@ def seed_all(seed):
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
+    
+def create_target_mask(tgt):
+    # tgt shape: (batch_size, seq_len)
+    seq_len = tgt.shape[1]
+    
+    # Creates a square matrix with True on and below the diagonal, False above.
+    mask = torch.tril(torch.ones(seq_len, seq_len)).bool()
+    return mask.to(tgt.device)

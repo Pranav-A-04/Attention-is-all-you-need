@@ -22,7 +22,7 @@ parser.add_argument('--dropout', type=float, default=0.1, help='Dropout rate')
 
 #training args
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
-parser.add_argument('--num_epochs', type=int, default=10, help='Number of epochs to train')
+parser.add_argument('--num_epochs', type=int, default=50, help='Number of epochs to train')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
 parser.add_argument('--save_dir', type=str, default='./checkpoints', help='Directory to save model checkpoints')
 parser.add_argument('--save_interval', type=int, default=1, help='Interval (in epochs) to save model checkpoints')
@@ -81,7 +81,8 @@ def train(batch, model, optimizer, loss_criterion, device, epoch):
     decoder_input_ids[:, 1:] = labels[:, :-1]
     decoder_input_ids[:, 0] = tokenizer.pad_token_id  # Start token can be pad token for simplicity
 
-    outputs = model(input_ids, decoder_input_ids, src_mask=attention_mask, tgt_mask=None)
+    tgt_mask = create_target_mask(decoder_input_ids)
+    outputs = model(input_ids, decoder_input_ids, src_mask=attention_mask, tgt_mask=tgt_mask)
     
     # Compute loss only on non-padded tokens
     loss = loss_criterion(outputs.view(-1, outputs.size(-1)), labels.view(-1))
@@ -109,8 +110,9 @@ def validate(batch, model, loss_criterion, device, epoch):
     decoder_input_ids[:, 1:] = labels[:, :-1]
     decoder_input_ids[:, 0] = tokenizer.pad_token_id  # Start token can be pad token for simplicity
 
+    tgt_mask = create_target_mask(decoder_input_ids)
     with torch.no_grad():
-        outputs = model(input_ids, decoder_input_ids, src_mask=attention_mask, tgt_mask=None)
+        outputs = model(input_ids, decoder_input_ids, src_mask=attention_mask, tgt_mask=tgt_mask)
         
         # Compute loss only on non-padded tokens
         loss = loss_criterion(outputs.view(-1, outputs.size(-1)), labels.view(-1))
@@ -129,9 +131,6 @@ def main():
         dropout=args.dropout
     ).to(args.device)
     
-    model.resize_token_embeddings(len(tokenizer))
-
-
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     loss_criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
 
