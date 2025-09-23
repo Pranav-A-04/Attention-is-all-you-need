@@ -30,7 +30,8 @@ class ScaledDotProductAttention(nn.Module):
         d_k = query.size(-1)
         scores = torch.matmul(query, key.transpose(-2, -1)) / torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
         if mask is not None:
-            scores = scores.masked_fill(mask == 0, -1e9)
+            fill_value = torch.finfo(scores.dtype).min
+            scores = scores.masked_fill(mask == 0, fill_value)
         attn = self.softmax(scores)
         attn = self.dropout(attn)
         output = torch.matmul(attn, value)
