@@ -59,8 +59,8 @@ class MultiHeadAttention(nn.Module):
         key = self.linear_k(key).view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
         value = self.linear_v(value).view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
 
-        if mask is not None:
-            mask = mask.unsqueeze(1)
+        # if mask is not None:
+        #     mask = mask.unsqueeze(1)
 
         x = self.attention(query, key, value, mask=mask)
 
@@ -81,4 +81,4 @@ def create_target_mask(tgt):
     
     # Creates a square matrix with True on and below the diagonal, False above.
     mask = torch.tril(torch.ones(seq_len, seq_len)).bool()
-    return mask.to(tgt.device)
+    return mask.unsqueeze(0).unsqueeze(0).to(tgt.device)

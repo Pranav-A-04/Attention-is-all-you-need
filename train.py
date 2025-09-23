@@ -74,6 +74,7 @@ def train(batch, model, optimizer, loss_criterion, device, epoch):
     
     input_ids = batch["input_ids"].to(device)
     attention_mask = batch["attention_mask"].to(device)
+    attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)  # for compatibility
     labels = batch["labels"].to(device)
     
     # Shift labels for teacher forcing
@@ -103,6 +104,7 @@ def validate(batch, model, loss_criterion, device, epoch):
     
     input_ids = batch["input_ids"].to(device)
     attention_mask = batch["attention_mask"].to(device)
+    attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)  # for compatibility
     labels = batch["labels"].to(device)
     
     # Shift labels for teacher forcing
