@@ -10,6 +10,7 @@ from preprocess.tokenize import *
 import argparse
 from datasets import load_dataset
 from torch.utils.data import DataLoader
+from torch.cuda.amp import GradScaler, autocast
 
 parser = argparse.ArgumentParser()
 
@@ -69,7 +70,7 @@ val_dataloader = DataLoader(
                     shuffle=False
                 )
 
-def train(batch, model, optimizer, loss_criterion, device, epoch):
+def train(batch, model, optimizer, loss_criterion, device, epoch, scaler):
     model.train()
     
     input_ids = batch["input_ids"].to(device)
@@ -83,19 +84,20 @@ def train(batch, model, optimizer, loss_criterion, device, epoch):
     decoder_input_ids[:, 0] = tokenizer.pad_token_id  # Start token can be pad token for simplicity
 
     tgt_mask = create_target_mask(decoder_input_ids)
-    outputs = model(input_ids, decoder_input_ids, src_mask=attention_mask, tgt_mask=tgt_mask)
     
-    # Compute loss only on non-padded tokens
-    loss = loss_criterion(outputs.view(-1, outputs.size(-1)), labels.view(-1))
+    with autocast():
+            outputs = model(input_ids, decoder_input_ids, src_mask=attention_mask, tgt_mask=tgt_mask)
+            loss = loss_criterion(outputs.view(-1, outputs.size(-1)), labels.view(-1))
     
     # zero out the optimizer grads
     optimizer.zero_grad()
     
     # backpropagate the loss
-    loss.backward()
+    scaler.scale(loss).backward()
     
     # update the model parameters
-    optimizer.step()
+    scaler.step(optimizer)
+    scaler.update()
 
     return loss.item()
 
@@ -142,10 +144,12 @@ def main():
     avg_train_loss = float('inf')
     avg_val_loss = float('inf')
 
+    scaler = GradScaler()
+    
     for epoch in range(args.num_epochs):
         train_losses = []
         for batch in train_dataloader:
-            loss = train(batch, model, optimizer, loss_criterion, args.device, epoch)
+            loss = train(batch, model, optimizer, loss_criterion, args.device, epoch, scaler)
             train_losses.append(loss)
             
         avg_train_loss = np.mean(train_losses)
