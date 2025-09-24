@@ -44,8 +44,21 @@ model = Transformer(
     dropout=args.dropout
 ).to(args.device)
 
-ckpt = torch.load(args.model_path, map_location=args.device)
-model.load_state_dict(ckpt)
+# Load the original checkpoint
+ckpt = torch.load(args.model_path) # Or however you load it
+
+# Create a new state dictionary without the "_orig_mod." prefix
+from collections import OrderedDict
+new_state_dict = OrderedDict()
+for k, v in ckpt.items():
+    if k.startswith('_orig_mod.'):
+        name = k[10:] # remove `_orig_mod.`
+        new_state_dict[name] = v
+    else:
+        new_state_dict[k] = v
+
+# Load the cleaned state dictionary
+model.load_state_dict(new_state_dict)
 model.eval()
 
 
