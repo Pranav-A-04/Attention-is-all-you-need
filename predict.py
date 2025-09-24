@@ -13,8 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--source_sentence', type=str, required=True, help='Source sentence to translate')
 parser.add_argument('--source_lang', type=str, choices=['de', 'en'], required=True, help='Source language (de or en)')
 parser.add_argument('--target_lang', type=str, choices=['de', 'en'], required=True, help='Target language (de or en)')
-parser.add_argument('--input_dim', type=int, default=512, help='Input embedding dimension')
-parser.add_argument('--output_dim', type=int, default=512, help='Output embedding dimension ')
+parser.add_argument('--emb_dim', type=int, default=512, help='Embedding dimension')
 parser.add_argument('--num_heads', type=int, default=8, help='Number of attention heads')
 parser.add_argument('--num_encoder_layers', type=int, default=6, help='Number of encoder layers')
 parser.add_argument('--num_decoder_layers', type=int, default=6, help='Number of decoder layers')
@@ -27,10 +26,18 @@ args = parser.parse_args()
 # Set random seed for reproducibility
 seed_all(args.seed)
 
+# Load tokenizer
+tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-de-en")
+tokenizer.add_special_tokens({"additional_special_tokens": ["<2en>", "<2de>"]})
+
+# Manually adding direction token
+direction_token = f"<2{args.target_lang}>"
+source_text = f"{direction_token} {args.source_sentence}"
+
 # Load the trained model
 model = Transformer(
-    input_dim=args.input_dim,
-    output_dim=args.output_dim,
+    vocab_size=len(tokenizer),
+    d_model=args.emb_dim,
     num_heads=args.num_heads,
     num_encoder_layers=args.num_encoder_layers,
     num_decoder_layers=args.num_decoder_layers,
@@ -41,13 +48,7 @@ ckpt = torch.load(args.model_path, map_location=args.device)
 model.load_state_dict(ckpt)
 model.eval()
 
-# Load tokenizer
-tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-de-en")
-tokenizer.add_tokens({"additional_special_tokens": ["<2en>", "<2de>"]})
 
-# Manually adding direction token
-direction_token = f"<2{args.target_lang}>"
-source_text = f"{direction_token} {args.source_sentence}"
 print(f"Source Text: {source_text}")
 max_len = 64  # Maximum length of the target sequence
 
@@ -62,6 +63,7 @@ inputs = tokenizer(
 
 input_ids = inputs["input_ids"].to(args.device)
 attention_mask = inputs["attention_mask"].to(args.device)
+attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
 
 decoder_start_token_id = tokenizer.pad_token_id
 generated_ids = torch.tensor([[decoder_start_token_id]], device=args.device)
