@@ -12,6 +12,8 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
 
+from tqdm import tqdm
+
 parser = argparse.ArgumentParser()
 
 #model args
@@ -22,9 +24,9 @@ parser.add_argument('--num_decoder_layers', type=int, default=6, help='Number of
 parser.add_argument('--dropout', type=float, default=0.1, help='Dropout rate')
 
 #training args
-parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
-parser.add_argument('--num_epochs', type=int, default=50, help='Number of epochs to train')
-parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
+parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training')
+parser.add_argument('--num_epochs', type=int, default=20, help='Number of epochs to train')
+parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate')
 parser.add_argument('--save_dir', type=str, default='./checkpoints', help='Directory to save model checkpoints')
 parser.add_argument('--save_interval', type=int, default=1, help='Interval (in epochs) to save model checkpoints')
 parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='Device to use for training')
@@ -98,7 +100,6 @@ def train(batch, model, optimizer, loss_criterion, device, epoch, scaler):
     # update the model parameters
     scaler.step(optimizer)
     scaler.update()
-
     return loss.item()
 
 def validate(batch, model, loss_criterion, device, epoch):
@@ -134,11 +135,12 @@ def main():
         num_decoder_layers=args.num_decoder_layers,
         dropout=args.dropout
     ).to(args.device)
-    
+    model = torch.compile(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     loss_criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
 
     print("Start training...")
+    best_val_loss = float('inf')
 
     # init loss trackers
     avg_train_loss = float('inf')
@@ -148,30 +150,37 @@ def main():
     
     for epoch in range(args.num_epochs):
         train_losses = []
+        train_loop = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{args.num_epochs} [Training]")
         for batch in train_dataloader:
             loss = train(batch, model, optimizer, loss_criterion, args.device, epoch, scaler)
             train_losses.append(loss)
+            train_loop.set_postfix(loss=np.mean(train_losses))
             
         avg_train_loss = np.mean(train_losses)
         
         val_losses = []
         if (epoch + 1) % args.save_interval == 0:
             print("Validating...")
+            val_loop = tqdm(val_dataloader, desc=f"Epoch {epoch+1}/{args.num_epochs} [Validation]")
             for batch in val_dataloader:
                 loss = validate(batch, model, loss_criterion, args.device, epoch)
                 val_losses.append(loss)
+                val_loop.set_postfix(loss=np.mean(val_losses))
             
             avg_val_loss = np.mean(val_losses)
         
-        print(f"Epoch: {epoch+1}/{args.num_epochs} | Avg Training Loss: {avg_train_loss} | Avg Validation Loss: {avg_val_loss}")
+        print(f"Epoch Summary: {epoch+1}/{args.num_epochs} | Avg Training Loss: {avg_train_loss} | Avg Validation Loss: {avg_val_loss}")
         
         # Save model checkpoint
-        if (epoch + 1) % args.save_interval == 0:
+        # --- SAVE THE BEST MODEL ---
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
             if not os.path.exists(args.save_dir):
                 os.makedirs(args.save_dir)
-            checkpoint_path = os.path.join(args.save_dir, f"transformer_epoch{epoch}.pth")
+            
+            checkpoint_path = os.path.join(args.save_dir, "best_model.pth")
             torch.save(model.state_dict(), checkpoint_path)
-            print(f"Model checkpoint saved at {checkpoint_path}")
+            print(f"-> New best model saved at {checkpoint_path} with Val Loss: {best_val_loss:.4f}")
 
 
 if __name__ == "__main__":
